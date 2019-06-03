@@ -15,7 +15,7 @@ class KubernetesDeployTest < KubernetesDeploy::IntegrationTest
       %r{- Pod/unmanaged-pod-2-[-\w]+ \(timeout: 60s\)}, # annotation timeout override
       "Hello from the command runner!", # unmanaged pod logs
       "Result: SUCCESS",
-      "Successfully deployed 24 resources",
+      "Successfully deployed 26 resources",
     ], in_order: true)
     refute_logs_match(/Using resource selector/)
 
@@ -107,8 +107,14 @@ class KubernetesDeployTest < KubernetesDeploy::IntegrationTest
       prune_matcher("poddisruptionbudget", "policy", "test"),
       prune_matcher("networkpolicy", "networking.k8s.io", "allow-all-network-policy"),
       prune_matcher("secret", "", "hello-secret"),
+      prune_matcher("replicaset", "extensions", "bare-replica-set"),
+      prune_matcher("serviceaccount", "", "build-robot"),
+      prune_matcher("podtemplate", "", "hello-cloud-template-runner"),
+      prune_matcher("role", "rbac.authorization.k8s.io", "role"),
+      prune_matcher("rolebinding", "rbac.authorization.k8s.io", "role-binding"),
+      prune_matcher("persistentvolumeclaim", "", "hello-pvc"),
     ] # not necessarily listed in this order
-    expected_msgs = [/Pruned 13 resources and successfully deployed 6 resources/]
+    expected_msgs = [/Pruned 19 resources and successfully deployed 6 resources/]
     expected_pruned.map do |resource|
       expected_msgs << /The following resources were pruned:.*#{resource}/
     end

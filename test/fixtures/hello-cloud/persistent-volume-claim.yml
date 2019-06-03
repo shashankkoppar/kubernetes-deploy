@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hello-pvc
+  labels:
+    name: hello-pvc
+    app: hello-cloud
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 150Mi
+  storageClassName: k8s-deploy-test
+  volumeMode: Filesystem
