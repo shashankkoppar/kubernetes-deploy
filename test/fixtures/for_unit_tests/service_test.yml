@@ -72,6 +72,14 @@ spec:
   selector:
     type: zero-replica
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zero-replica-multiple
+spec:
+  selector:
+    type: zero-replica-multiple
+---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -87,6 +95,46 @@ spec:
     metadata:
       labels:
         type: zero-replica
+    spec:
+      containers:
+      - name: app
+        image: busybox
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  type: zero-replica-multiple
+  labels:
+    type: zero-replica-multiple
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      type: zero-replica-multiple
+  template:
+    metadata:
+      labels:
+        type: zero-replica-multiple
+    spec:
+      containers:
+      - name: app
+        image: busybox
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  type: zero-replica-multiple
+  labels:
+    type: zero-replica-multiple
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      type: zero-replica-multiple
+  template:
+    metadata:
+      labels:
+        type: zero-replica-multiple
     spec:
       containers:
       - name: app
