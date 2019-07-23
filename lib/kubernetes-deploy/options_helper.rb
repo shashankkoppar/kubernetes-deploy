@@ -6,22 +6,35 @@ module KubernetesDeploy
 
     STDIN_TEMP_FILE = "from_stdin.yml.erb"
     class << self
-      def with_validated_template_dir(template_dir)
-        if template_dir == '-'
+      def with_validated_template_dirs(template_dirs)
+        if template_dirs.select { |dir| dir == "-" }.length > 2
+          raise OptionsError, "Cannot specify stdin as a template directory more than once"
+        end
+
+        dirs = []
+        if template_dirs.empty?
+          dirs << default_template_dir
+        else
+          template_dirs.each do |template_dir|
+            next if template_dir == '-'
+            dirs << template_dir
+          end
+        end
+
+        if template_dirs.include?("-")
           Dir.mktmpdir("kubernetes-deploy") do |dir|
             template_dir_from_stdin(temp_dir: dir)
-            yield dir
+            dirs << dir
+            yield dirs
           end
-        elsif template_dir
-          yield template_dir
         else
-          yield default_template_dir(template_dir)
+          yield dirs
         end
       end
 
       private
 
-      def default_template_dir(template_dir)
+      def default_template_dir
         if ENV.key?("ENVIRONMENT")
           template_dir = File.join("config", "deploy", ENV['ENVIRONMENT'])
         end

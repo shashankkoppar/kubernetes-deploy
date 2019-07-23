@@ -102,22 +102,24 @@ module KubernetesDeploy
       kubectl.server_version
     end
 
-    def initialize(namespace:, context:, current_sha:, template_dir:, logger:, kubectl_instance: nil, bindings: {},
+    def initialize(namespace:, context:, current_sha:, template_dirs:, logger:, kubectl_instance: nil, bindings: {},
       max_watch_seconds: nil, selector: nil)
       @namespace = namespace
       @namespace_tags = []
       @context = context
       @current_sha = current_sha
-      @template_dir = File.expand_path(template_dir)
+      @template_dirs = template_dirs.map { |template_dir| File.expand_path(template_dir) }
       @logger = logger
       @kubectl = kubectl_instance
       @max_watch_seconds = max_watch_seconds
-      @renderer = KubernetesDeploy::Renderer.new(
-        current_sha: @current_sha,
-        template_dir: @template_dir,
-        logger: @logger,
-        bindings: bindings,
-      )
+      @renderers = @template_dirs.map do |template_dir|
+        KubernetesDeploy::Renderer.new(
+          current_sha: @current_sha,
+          template_dir: template_dir,
+          logger: @logger,
+          bindings: bindings,
+        )
+      end
       @selector = selector
     end
 
@@ -204,15 +206,17 @@ module KubernetesDeploy
       )
     end
 
-    def ejson_provisioner
-      @ejson_provisioner ||= EjsonSecretProvisioner.new(
-        namespace: @namespace,
-        context: @context,
-        template_dir: @template_dir,
-        logger: @logger,
-        statsd_tags: @namespace_tags,
-        selector: @selector,
-      )
+    def ejson_provisioners
+      @ejson_provisioners ||= @template_dirs.map do |template_dir|
+        EjsonSecretProvisioner.new(
+          namespace: @namespace,
+          context: @context,
+          template_dir: template_dir,
+          logger: @logger,
+          statsd_tags: @namespace_tags,
+          selector: @selector,
+        )
+      end
     end
 
     def deploy_has_priority_resources?(resources)
@@ -267,7 +271,7 @@ module KubernetesDeploy
     measure_method(:check_initial_status, "initial_status.duration")
 
     def secrets_from_ejson
-      ejson_provisioner.resources
+      ejson_provisioners.flat_map(&:resources)
     end
 
     def discover_resources
@@ -275,13 +279,15 @@ module KubernetesDeploy
       crds = cluster_resource_discoverer.crds.group_by(&:kind)
       @logger.info("Discovering templates:")
 
-      TemplateDiscovery.new(@template_dir).templates.each do |filename|
-        split_templates(filename) do |r_def|
-          crd = crds[r_def["kind"]]&.first
-          r = KubernetesResource.build(namespace: @namespace, context: @context, logger: @logger, definition: r_def,
-            statsd_tags: @namespace_tags, crd: crd)
-          resources << r
-          @logger.info("  - #{r.id}")
+      @template_dirs.each do |template_dir|
+        TemplateDiscovery.new(template_dir).templates.each do |filename|
+          split_templates(template_dir, filename) do |r_def|
+            crd = crds[r_def["kind"]]&.first
+            r = KubernetesResource.build(namespace: @namespace, context: @context, logger: @logger, definition: r_def,
+              statsd_tags: @namespace_tags, crd: crd)
+            resources << r
+            @logger.info("  - #{r.id}")
+          end
         end
       end
       secrets_from_ejson.each do |secret|
@@ -296,9 +302,11 @@ module KubernetesDeploy
     end
     measure_method(:discover_resources)
 
-    def split_templates(filename)
-      file_content = File.read(File.join(@template_dir, filename))
-      rendered_content = @renderer.render_template(filename, file_content)
+    def split_templates(template_dir, filename)
+      file_content = File.read(File.join(template_dir, filename))
+      rendered_content = @renderers.find do |renderer|
+        renderer.template_dir == template_dir
+      end.render_template(filename, file_content)
       YAML.load_stream(rendered_content, "<rendered> #{filename}") do |doc|
         next if doc.blank?
         unless doc.is_a?(Hash)
@@ -333,10 +341,12 @@ module KubernetesDeploy
       errors = []
       errors += kubeclient_builder.validate_config_files
 
-      if !File.directory?(@template_dir)
-        errors << "Template directory `#{@template_dir}` doesn't exist"
-      elsif Dir.entries(@template_dir).none? { |file| file =~ /(\.ya?ml(\.erb)?)$|(secrets\.ejson)$/ }
-        errors << "`#{@template_dir}` doesn't contain valid templates (secrets.ejson or postfix .yml, .yml.erb)"
+      @template_dirs.each do |template_dir|
+        if !File.directory?(template_dir)
+          errors << "Template directory `#{template_dir}` doesn't exist"
+        elsif Dir.entries(template_dir).none? { |file| file =~ /(\.ya?ml(\.erb)?)$|(secrets\.ejson)$/ }
+          errors << "`#{template_dir}` doesn't contain valid templates (secrets.ejson or postfix .yml, .yml.erb)"
+        end
       end
 
       if @namespace.blank?
@@ -568,7 +578,7 @@ module KubernetesDeploy
 
     # make sure to never prune the ejson-keys secret
     def confirm_ejson_keys_not_prunable
-      secret = ejson_provisioner.ejson_keys_secret
+      secret = ejson_provisioners.first.ejson_keys_secret
       return unless secret.dig("metadata", "annotations", KubernetesResource::LAST_APPLIED_ANNOTATION)
 
       @logger.error("Deploy cannot proceed because protected resource " \

@@ -15,6 +15,7 @@ module KubernetesDeploy
       end
     end
     class PartialNotFound < InvalidTemplateError; end
+    attr_reader :template_dir
 
     def initialize(current_sha:, template_dir:, logger:, bindings: {})
       @current_sha = current_sha
