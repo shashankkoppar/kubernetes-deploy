@@ -14,7 +14,7 @@ class DeployTaskTest < KubernetesDeploy::TestCase
       context: "",
       logger: logger,
       current_sha: "",
-      template_dir: "unknown",
+      template_dirs: ["unknown"],
     ).run
     assert_logs_match("Configuration invalid")
     assert_logs_match("Namespace must be specified")

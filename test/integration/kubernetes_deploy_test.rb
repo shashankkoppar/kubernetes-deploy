@@ -906,7 +906,7 @@ unknown field \"myKey\" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
       "StatefulSet/stateful-busybox: FAILED",
       "app: Crashing repeatedly (exit 1). See logs for more information.",
       "Events (common success events excluded):",
-      %r{\[Pod/stateful-busybox-\d\]	BackOff: Back-off restarting failed container},
+      %r{\[Pod/stateful-busybox-\d\]\tBackOff: Back-off restarting failed container},
       "Logs from container 'app':",
       "ls: /not-a-dir: No such file or directory",
     ], in_order: true)
@@ -1095,7 +1095,7 @@ unknown field \"myKey\" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
       "Result: FAILURE",
       "Job/hello-job: FAILED",
       "Final status: Failed",
-      %r{\[Job/hello-job\]	DeadlineExceeded: Job was active longer than specified deadline \(\d+ events\)},
+      %r{\[Job/hello-job\]\tDeadlineExceeded: Job was active longer than specified deadline \(\d+ events\)},
     ])
   end
 
