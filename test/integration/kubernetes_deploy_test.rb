@@ -802,6 +802,14 @@ unknown field \"myKey\" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
     assert_equal(1, new_ready_pods.length, "Expected exactly one new pod to be ready, saw #{new_ready_pods.length}")
   end
 
+  def test_deploy_successful_with_multiple_template_dirs
+    deploy_dir(fixture_path("hello-cloud"), fixture_path("cronjobs"))
+    assert_logs_match_all([
+            %r{Service/web\s+Doesn't require any endpoint},
+            %r{Deployment/web\s+0 replicas},
+          ])
+  end
+
   def test_deploy_aborts_immediately_if_metadata_name_missing
     result = deploy_fixtures("hello-cloud", subset: ["configmap-data.yml"]) do |fixtures|
       definition = fixtures["configmap-data.yml"]["ConfigMap"].first
