@@ -803,11 +803,15 @@ unknown field \"myKey\" in io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta",
   end
 
   def test_deploy_successful_with_multiple_template_dirs
-    deploy_dir(fixture_path("hello-cloud"), fixture_path("cronjobs"))
-    assert_logs_match_all([
-            %r{Service/web\s+Doesn't require any endpoint},
-            %r{Deployment/web\s+0 replicas},
-          ])
+    result = deploy_dir(fixture_path("test-partials"), fixture_path("cronjobs"),
+      bindings: { 'supports_partials' => 'yep' })
+    assert_deploy_success(result)
+  end
+
+  def test_deploy_successful_with_multiple_template_dirs_multiple_partials
+    result = deploy_dir(fixture_path("test-partials"), fixture_path("test-partials2"),
+      bindings: { 'supports_partials' => 'yep' })
+    assert_deploy_success(false)
   end
 
   def test_deploy_aborts_immediately_if_metadata_name_missing
